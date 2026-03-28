@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
+import * as ReactDOM from 'react-dom';
 import { 
   Mic, 
   MicOff, 
   ArrowLeftRight, 
   Trash2, 
-  MessageSquare,
-  Globe,
-  Zap
+  MessageSquare, 
+  Globe, 
+  Zap 
 } from 'lucide-react';
 
 // --- API Configuration ---
@@ -17,14 +18,13 @@ const App = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [messages, setMessages] = useState([]);
   const [sourceLang, setSourceLang] = useState('ja-JP');
-  const [targetLang, setTargetLang] = useState('zh-TW'); // デフォルトを台湾（繁体字）に設定
+  const [targetLang, setTargetLang] = useState('zh-TW'); // 台湾（繁体字）
   const [interimText, setInterimText] = useState('');
   const [isTranslating, setIsTranslating] = useState(false);
 
   const recognitionRef = useRef(null);
   const chatEndRef = useRef(null);
 
-  // Quick Select Buttons
   const quickSettings = [
     { label: "🇯🇵 → 🇹🇼 繁体字", src: "ja-JP", tgt: "zh-TW" },
     { label: "🇹🇼 → 🇯🇵 日本語", src: "zh-TW", tgt: "ja-JP" },
@@ -32,12 +32,12 @@ const App = () => {
     { label: "🇺🇸 → 🇯🇵 日本語", src: "en-US", tgt: "ja-JP" }
   ];
 
-  // Scroll to bottom
+  // 自動スクロール
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, interimText]);
 
-  // Speech Recognition Setup
+  // 音声認識の設定
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) return;
@@ -60,12 +60,20 @@ const App = () => {
 
     recognition.onend = () => {
       if (isRecording) {
-        recognition.start();
+        try {
+          recognition.start();
+        } catch (e) {
+          console.error("Speech recognition error:", e);
+        }
       }
     };
 
     recognitionRef.current = recognition;
-  }, [sourceLang, isRecording, targetLang]);
+
+    return () => {
+      recognition.stop();
+    };
+  }, [sourceLang, isRecording]);
 
   const handleFinalTranscript = async (text) => {
     if (!text.trim()) return;
@@ -101,10 +109,10 @@ const App = () => {
         })
       });
       const data = await response.json();
-      return data.candidates[0].content.parts[0].text.trim();
+      return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "翻訳に失敗しました。";
     } catch (error) {
       console.error("Translation error:", error);
-      return "翻訳に失敗しました。";
+      return "エラーが発生しました。";
     }
   };
 
@@ -113,8 +121,8 @@ const App = () => {
       recognitionRef.current?.stop();
       setIsRecording(false);
     } else {
-      recognitionRef.current?.start();
       setIsRecording(true);
+      recognitionRef.current?.start();
     }
   };
 
@@ -122,8 +130,8 @@ const App = () => {
     setSourceLang(src);
     setTargetLang(tgt);
     if (isRecording) {
-      recognitionRef.current?.stop();
       setIsRecording(false);
+      recognitionRef.current?.stop();
     }
   };
 
@@ -136,7 +144,6 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans antialiased text-slate-800">
-      {/* Header */}
       <header className="bg-white border-b px-6 py-4 sticky top-0 z-20 shadow-sm">
         <div className="max-w-4xl mx-auto flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -154,7 +161,6 @@ const App = () => {
             </div>
           </div>
 
-          {/* 4 Quick Select Buttons */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {quickSettings.map((setting, index) => (
               <button
@@ -174,7 +180,6 @@ const App = () => {
         </div>
       </header>
 
-      {/* Main Chat Area */}
       <main className="flex-1 overflow-y-auto p-4 md:p-8 max-w-4xl mx-auto w-full space-y-6">
         {messages.length === 0 && !interimText && (
           <div className="flex flex-col items-center justify-center h-full text-slate-400 space-y-4 pt-12">
@@ -185,30 +190,20 @@ const App = () => {
               <p className="text-lg font-bold text-slate-600">会話を始めましょう</p>
               <p className="text-sm text-slate-400">開始對話吧</p>
             </div>
-            <p className="text-xs text-center text-slate-400 mt-4 bg-slate-100 px-4 py-2 rounded-full">
-              上のボタンでモードを選び、下のマイクを押してください
-            </p>
           </div>
         )}
 
         {messages.map((msg) => (
           <div key={msg.id} className="flex flex-col space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            {/* Original Text */}
             <div className="flex justify-start">
               <div className="bg-white border border-slate-200 px-4 py-3 rounded-2xl rounded-bl-none shadow-sm max-w-[85%]">
-                <p className="text-slate-400 text-[10px] font-bold mb-1 uppercase tracking-wider">
-                  {getLangName(msg.source)}
-                </p>
+                <p className="text-slate-400 text-[10px] font-bold mb-1 uppercase tracking-wider">{getLangName(msg.source)}</p>
                 <p className="text-slate-800 leading-relaxed">{msg.original}</p>
               </div>
             </div>
-
-            {/* Translated Text */}
             <div className="flex justify-end">
               <div className="bg-indigo-600 text-white px-4 py-3 rounded-2xl rounded-br-none shadow-md max-w-[85%] relative overflow-hidden">
-                <p className="text-indigo-200 text-[10px] font-bold mb-1 uppercase tracking-wider">
-                  {getLangName(msg.target)}
-                </p>
+                <p className="text-indigo-200 text-[10px] font-bold mb-1 uppercase tracking-wider">{getLangName(msg.target)}</p>
                 {msg.translated === '...' ? (
                   <div className="flex gap-1 py-1">
                     <div className="w-2 h-2 bg-white/40 rounded-full animate-bounce"></div>
@@ -231,17 +226,14 @@ const App = () => {
             </div>
           </div>
         )}
-        
         <div ref={chatEndRef} />
       </main>
 
-      {/* Footer Controls */}
       <footer className="bg-white border-t p-6 pb-8 flex items-center justify-center relative">
         <div className="absolute left-6">
           <button 
-            onClick={() => { if(confirm("会話記録を削除しますか？ / 要刪除對話記錄嗎？")) setMessages([]); }}
-            className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
-            title="削除"
+            onClick={() => { if(window.confirm("会話記録を削除しますか？")) setMessages([]); }}
+            className="p-3 text-slate-300 hover:text-red-500 rounded-full transition-all"
           >
             <Trash2 className="w-5 h-5" />
           </button>
@@ -249,31 +241,64 @@ const App = () => {
 
         <button
           onClick={toggleRecording}
-          className={`w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-xl group ${
-            isRecording 
-              ? 'bg-red-500 hover:bg-red-600 scale-110' 
-              : 'bg-indigo-600 hover:bg-indigo-700'
+          className={`w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-xl ${
+            isRecording ? 'bg-red-500 scale-110 active:scale-95' : 'bg-indigo-600 hover:bg-indigo-700 active:scale-95'
           }`}
         >
-          {isRecording ? (
-            <div className="relative">
-              <MicOff className="text-white w-8 h-8" />
-              <div className="absolute -inset-6 border-4 border-red-400 rounded-full animate-ping opacity-20"></div>
-            </div>
-          ) : (
-            <Mic className="text-white w-8 h-8 group-hover:scale-110 transition-transform" />
-          )}
+          {isRecording ? <MicOff className="text-white w-8 h-8" /> : <Mic className="text-white w-8 h-8" />}
         </button>
-
-        <div className="absolute right-6 flex flex-col items-center gap-1 text-slate-400">
-           <div className={`w-2 h-2 rounded-full ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-slate-300'}`}></div>
-           <span className="text-[10px] font-bold uppercase tracking-widest">
-             {isRecording ? 'Listening' : 'Ready'}
-           </span>
-        </div>
       </footer>
     </div>
   );
 };
+
+// --- レンダリング・ブートストラップの最終修正 ---
+const ROOT_ID = 'root';
+const GLOBAL_ROOT_STORAGE = '__TRANSLATION_APP_ROOT__';
+
+const mountApp = () => {
+  const container = document.getElementById(ROOT_ID);
+  if (!container) return;
+
+  const appElement = (
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+
+  // グローバル変数を確認して、ルートが存在すれば render だけ行う
+  if (window[GLOBAL_ROOT_STORAGE]) {
+    window[GLOBAL_ROOT_STORAGE].render(appElement);
+    return;
+  }
+
+  // ルートが存在しない場合のみ作成
+  try {
+    let createRootFn;
+    try {
+      // clientモジュールからの取得を試みる
+      const ReactDOMClient = require('react-dom/client');
+      createRootFn = ReactDOMClient.createRoot;
+    } catch (e) {
+      // 直接 ReactDOM からの取得を試みる
+      createRootFn = ReactDOM.createRoot;
+    }
+
+    if (createRootFn) {
+      const root = createRootFn(container);
+      window[GLOBAL_ROOT_STORAGE] = root; // 作成したルートを保存
+      root.render(appElement);
+    }
+  } catch (err) {
+    console.error("React root initialization failed:", err);
+  }
+};
+
+// DOMの状態に応じて実行。既に読み込み済みの場合は即座に実行。
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  mountApp();
+} else {
+  window.addEventListener('DOMContentLoaded', mountApp);
+}
 
 export default App;
